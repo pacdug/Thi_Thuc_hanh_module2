@@ -14,43 +14,18 @@ public class MobilePhoneManager {
     private static final String FILE_PATH = "data/mobiles.csv";
 
     // Đọc danh sách điện thoại từ file CSV
-    public List<MobilePhone> readPhones() {
+    private List<MobilePhone> readPhones() {
         List<MobilePhone> phones = new ArrayList<>();
         File file = new File(FILE_PATH);
         if (!file.exists()) {
-            // Nếu file không tồn tại, tạo thư mục và file
-            file.getParentFile().mkdirs();
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                System.out.println("Error creating data file.");
-            }
+            createFile(file);
             return phones;
         }
 
         try (BufferedReader br = new BufferedReader(new FileReader(FILE_PATH))) {
             String line;
             while ((line = br.readLine()) != null) {
-                String[] data = line.split(",");
-                // Đảm bảo rằng dòng có ít nhất 7 trường (điện thoại chính hãng) hoặc 8 trường (xách tay)
-                if (data.length < 7) continue;
-                int id = Integer.parseInt(data[0]);
-                String type = data[1];
-                String name = data[2];
-                double price = Double.parseDouble(data[3]);
-                int quantity = Integer.parseInt(data[4]);
-                String manufacturer = data[5];
-                if (type.equalsIgnoreCase("Original")) {
-                    if (data.length < 8) continue; // Đảm bảo đủ trường
-                    int warrantyTime = Integer.parseInt(data[6]);
-                    String warrantyScope = data[7];
-                    phones.add(new OriginalPhone(id, name, price, quantity, manufacturer, warrantyTime, warrantyScope));
-                } else if (type.equalsIgnoreCase("Imported")) {
-                    if (data.length < 8) continue; // Đảm bảo đủ trường
-                    String importCountry = data[6];
-                    String status = data[7];
-                    phones.add(new ImportedPhone(id, name, price, quantity, manufacturer, importCountry, status));
-                }
+                phones.add(parsePhone(line));
             }
         } catch (IOException e) {
             System.out.println("Error reading data file.");
@@ -58,8 +33,39 @@ public class MobilePhoneManager {
         return phones;
     }
 
+    // Tạo file nếu không tồn tại
+    private void createFile(File file) {
+        file.getParentFile().mkdirs();
+        try {
+            file.createNewFile();
+        } catch (IOException e) {
+            System.out.println("Error creating data file.");
+        }
+    }
+
+    // Phân tích dòng dữ liệu CSV thành đối tượng điện thoại
+    private MobilePhone parsePhone(String line) {
+        String[] data = line.split(",");
+        if (data.length < 7) return null;
+
+        int id = Integer.parseInt(data[0]);
+        String type = data[1];
+        String name = data[2];
+        double price = Double.parseDouble(data[3]);
+        int quantity = Integer.parseInt(data[4]);
+        String manufacturer = data[5];
+
+        if (type.equalsIgnoreCase("Original")) {
+            return new OriginalPhone(id, name, price, quantity, manufacturer,
+                    Integer.parseInt(data[6]), data[7]);
+        } else if (type.equalsIgnoreCase("Imported")) {
+            return new ImportedPhone(id, name, price, quantity, manufacturer, data[6], data[7]);
+        }
+        return null;
+    }
+
     // Ghi danh sách điện thoại vào file CSV
-    public void writePhones(List<MobilePhone> phones) {
+    private void writePhones(List<MobilePhone> phones) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(FILE_PATH))) {
             for (MobilePhone phone : phones) {
                 bw.write(phone.toCSV());
@@ -71,21 +77,42 @@ public class MobilePhoneManager {
     }
 
     // Lấy ID tiếp theo
-    public int getNextId(List<MobilePhone> phones) {
-        int maxId = 0;
-        for (MobilePhone phone : phones) {
-            if (phone.getId() > maxId) {
-                maxId = phone.getId();
-            }
-        }
-        return maxId + 1;
+    private int getNextId(List<MobilePhone> phones) {
+        return phones.stream()
+                .mapToInt(MobilePhone::getId)
+                .max()
+                .orElse(0) + 1;
     }
 
     // Thêm mới điện thoại
     public void addPhone(Scanner scanner) {
         List<MobilePhone> phones = readPhones();
-        int newId = getNextId(phones);  // Ensure newId is generated properly
+        int newId = getNextId(phones);
 
+        String choice = promptPhoneType(scanner);
+        if (choice == null) return;
+
+        String name = prompt("Nhập tên điện thoại: ", scanner);
+        if (name == null) return;
+
+        double price = promptForDouble("Nhập giá bán: ", scanner);
+        if (price <= 0) return;
+
+        int quantity = promptForInt("Nhập số lượng: ", scanner);
+        if (quantity <= 0) return;
+
+        String manufacturer = prompt("Nhập nhà sản xuất: ", scanner);
+        if (manufacturer == null) return;
+
+        if (choice.equals("1")) {
+            addOriginalPhone(scanner, newId, name, price, quantity, manufacturer, phones);
+        } else {
+            addImportedPhone(scanner, newId, name, price, quantity, manufacturer, phones);
+        }
+    }
+
+    // Prompt for phone type
+    private String promptPhoneType(Scanner scanner) {
         System.out.println("Chọn loại điện thoại:");
         System.out.println("1. Chính hãng");
         System.out.println("2. Xách tay");
@@ -94,100 +121,83 @@ public class MobilePhoneManager {
 
         if (!choice.equals("1") && !choice.equals("2")) {
             System.out.println("Lựa chọn không hợp lệ.");
-            return;
+            return null;
         }
+        return choice;
+    }
 
-        System.out.print("Nhập tên điện thoại: ");
-        String name = scanner.nextLine();
-        if (name.isEmpty()) {
-            System.out.println("Tên điện thoại không được để trống.");
-            return;
+    // Prompt input for string
+    private String prompt(String message, Scanner scanner) {
+        System.out.print(message);
+        String input = scanner.nextLine();
+        if (input.isEmpty()) {
+            System.out.println("Input không được để trống.");
+            return null;
         }
+        return input;
+    }
 
-        System.out.print("Nhập giá bán: ");
-        String priceStr = scanner.nextLine();
-        double price;
+    // Prompt input for double values
+    private double promptForDouble(String message, Scanner scanner) {
+        String input = prompt(message, scanner);
+        if (input == null) return -1;
+
         try {
-            price = Double.parseDouble(priceStr);
-            if (price <= 0) {
-                System.out.println("Giá bán phải là số dương.");
-                return;
-            }
+            return Double.parseDouble(input);
         } catch (NumberFormatException e) {
             System.out.println("Giá bán phải là số.");
-            return;
+            return -1;
         }
+    }
 
-        System.out.print("Nhập số lượng: ");
-        String quantityStr = scanner.nextLine();
-        int quantity;
+    // Prompt input for integer values
+    private int promptForInt(String message, Scanner scanner) {
+        String input = prompt(message, scanner);
+        if (input == null) return -1;
+
         try {
-            quantity = Integer.parseInt(quantityStr);
-            if (quantity <= 0) {
-                System.out.println("Số lượng phải là số dương.");
-                return;
-            }
+            return Integer.parseInt(input);
         } catch (NumberFormatException e) {
             System.out.println("Số lượng phải là số.");
+            return -1;
+        }
+    }
+
+    // Thêm điện thoại chính hãng
+    private void addOriginalPhone(Scanner scanner, int newId, String name, double price, int quantity, String manufacturer, List<MobilePhone> phones) {
+        int warrantyTime = promptForInt("Nhập thời gian bảo hành (ngày): ", scanner);
+        if (warrantyTime <= 0 || warrantyTime > 730) return;
+
+        String warrantyScope = prompt("Nhập phạm vi bảo hành (Toan Quoc/Quoc Te): ", scanner);
+        if (!warrantyScope.equalsIgnoreCase("Toan Quoc") && !warrantyScope.equalsIgnoreCase("Quoc Te")) {
+            System.out.println("Phạm vi bảo hành không hợp lệ.");
             return;
         }
 
-        System.out.print("Nhập nhà sản xuất: ");
-        String manufacturer = scanner.nextLine();
-        if (manufacturer.isEmpty()) {
-            System.out.println("Nhà sản xuất không được để trống.");
+        OriginalPhone originalPhone = new OriginalPhone(newId, name, price, quantity, manufacturer, warrantyTime, warrantyScope);
+        phones.add(originalPhone);
+        writePhones(phones);
+        System.out.println("Thêm điện thoại chính hãng thành công!");
+    }
+
+    // Thêm điện thoại xách tay
+    private void addImportedPhone(Scanner scanner, int newId, String name, double price, int quantity, String manufacturer, List<MobilePhone> phones) {
+        String importCountry = prompt("Nhập quốc gia xách tay: ", scanner);
+        if (importCountry.equalsIgnoreCase("Viet Nam")) {
+            System.out.println("Quốc gia xách tay không được là 'Viet Nam'.");
             return;
         }
 
-        if (choice.equals("1")) {
-            // Điện thoại chính hãng
-            System.out.print("Nhập thời gian bảo hành (ngày): ");
-            String warrantyTimeStr = scanner.nextLine();
-            int warrantyTime;
-            try {
-                warrantyTime = Integer.parseInt(warrantyTimeStr);
-                if (warrantyTime <= 0 || warrantyTime > 730) {
-                    System.out.println("Thời gian bảo hành phải là số dương và không quá 730 ngày.");
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Thời gian bảo hành phải là số.");
-                return;
-            }
-
-            System.out.print("Nhập phạm vi bảo hành (Toan Quoc/Quoc Te): ");
-            String warrantyScope = scanner.nextLine();
-            if (!(warrantyScope.equalsIgnoreCase("Toan Quoc") || warrantyScope.equalsIgnoreCase("Quoc Te"))) {
-                System.out.println("Phạm vi bảo hành chỉ có thể là 'Toan Quoc' hoặc 'Quoc Te'.");
-                return;
-            }
-
-            OriginalPhone originalPhone = new OriginalPhone(newId, name, price, quantity, manufacturer, warrantyTime, warrantyScope);
-            phones.add(originalPhone);
-            writePhones(phones);
-            System.out.println("Thêm điện thoại chính hãng thành công!");
-
-        } else {
-            // Điện thoại xách tay
-            System.out.print("Nhập quốc gia xách tay: ");
-            String importCountry = scanner.nextLine();
-            if (importCountry.equalsIgnoreCase("Viet Nam")) {
-                System.out.println("Quốc gia xách tay không được là 'Viet Nam'.");
-                return;
-            }
-
-            System.out.print("Nhập trạng thái (Da sua chua/Chua sua chua): ");
-            String status = scanner.nextLine();
-            if (!(status.equalsIgnoreCase("Da sua chua") || status.equalsIgnoreCase("Chua sua chua"))) {
-                System.out.println("Trạng thái chỉ có thể là 'Da sua chua' hoặc 'Chua sua chua'.");
-                return;
-            }
-
-            ImportedPhone importedPhone = new ImportedPhone(newId, name, price, quantity, manufacturer, importCountry, status);
-            phones.add(importedPhone);
-            writePhones(phones);
-            System.out.println("Thêm điện thoại xách tay thành công!");
+        String status = prompt("Nhập trạng thái (Da sua chua/Chua sua chua): ", scanner);
+        if (!(status.equalsIgnoreCase("Da sua chua") || status.equalsIgnoreCase("Chua sua chua"))) {
+            System.out.println("Trạng thái không hợp lệ.");
+            return;
         }
+
+        ImportedPhone importedPhone = new ImportedPhone(newId, name, price, quantity, manufacturer, importCountry, status);
+        phones.add(importedPhone);
+        writePhones(phones);
+        System.out.println("Thêm điện thoại xách tay thành công!");
     }
 
     // Xóa điện thoại
@@ -198,24 +208,10 @@ public class MobilePhoneManager {
             return;
         }
 
-        System.out.print("Nhập ID điện thoại cần xóa: ");
-        String idStr = scanner.nextLine();
-        int id;
-        try {
-            id = Integer.parseInt(idStr);
-        } catch (NumberFormatException e) {
-            System.out.println("ID phải là số.");
-            return;
-        }
+        int id = promptForInt("Nhập ID điện thoại cần xóa: ", scanner);
+        if (id == -1) return;
 
-        MobilePhone phoneToDelete = null;
-        for (MobilePhone phone : phones) {
-            if (phone.getId() == id) {
-                phoneToDelete = phone;
-                break;
-            }
-        }
-
+        MobilePhone phoneToDelete = findPhoneById(phones, id);
         if (phoneToDelete == null) {
             try {
                 throw new NotFoundProductException("ID điện thoại không tồn tại.");
@@ -225,61 +221,32 @@ public class MobilePhoneManager {
             }
         }
 
-        // Hiển thị thông tin điện thoại cần xóa
+        // Hiển thị thông tin điện thoại cần xóa và xác nhận
         System.out.println("Thông tin điện thoại cần xóa:");
-        System.out.println(phoneToDelete.toString());
-
-        System.out.print("Bạn có chắc chắn muốn xóa? (Yes/No): ");
-        String confirm = scanner.nextLine();
-        if (confirm.equalsIgnoreCase("Yes")) {
+        System.out.println(phoneToDelete);
+        if (confirmDelete(scanner)) {
             phones.remove(phoneToDelete);
             writePhones(phones);
             System.out.println("Đã xóa điện thoại thành công!");
-            viewPhones(); // Hiển thị lại danh sách sau khi xóa
         } else {
             System.out.println("Hủy xóa điện thoại.");
         }
     }
 
-    // Xem danh sách điện thoại
-    public void viewPhones() {
-        List<MobilePhone> phones = readPhones();
-        if (phones.isEmpty()) {
-            System.out.println("Danh sách điện thoại đang trống.");
-            return;
-        }
-
-        System.out.println("----- Danh sách điện thoại -----");
+    // Tìm điện thoại theo ID
+    private MobilePhone findPhoneById(List<MobilePhone> phones, int id) {
         for (MobilePhone phone : phones) {
-            System.out.println(phone.toString());
-        }
-    }
-
-    // Tìm kiếm điện thoại
-    public void searchPhones(Scanner scanner) {
-        List<MobilePhone> phones = readPhones();
-        if (phones.isEmpty()) {
-            System.out.println("Danh sách điện thoại đang trống.");
-            return;
-        }
-
-        System.out.print("Nhập ID hoặc tên điện thoại cần tìm kiếm: ");
-        String query = scanner.nextLine().toLowerCase();
-
-        List<MobilePhone> results = new ArrayList<>();
-        for (MobilePhone phone : phones) {
-            if (String.valueOf(phone.getId()).equals(query) || phone.getName().toLowerCase().contains(query)) {
-                results.add(phone);
+            if (phone.getId() == id) {
+                return phone;
             }
         }
-
-        if (results.isEmpty()) {
-            System.out.println("Không tìm thấy điện thoại phù hợp.");
-        } else {
-            System.out.println("----- Kết quả tìm kiếm -----");
-            for (MobilePhone phone : results) {
-                System.out.println(phone.toString());
-            }
-        }
+        return null;
     }
-        }
+
+    // Xác nhận xóa điện thoại
+    private boolean confirmDelete(Scanner scanner) {
+        System.out.print("Bạn có chắc chắn muốn xóa (y/n)? ");
+        String choice = scanner.nextLine();
+        return choice.equalsIgnoreCase("y");
+    }
+}
