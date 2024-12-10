@@ -7,6 +7,7 @@ public abstract class MobilePhone {
     protected int quantity;
     protected String manufacturer;
 
+    // Constructor
     public MobilePhone(int id, String name, double price, int quantity, String manufacturer) {
         this.id = id;
         this.name = name;
@@ -15,7 +16,7 @@ public abstract class MobilePhone {
         this.manufacturer = manufacturer;
     }
 
-    // Getters và Setters
+    // Getter và Setter cho id
     public int getId() {
         return id;
     }
@@ -24,6 +25,7 @@ public abstract class MobilePhone {
         this.id = id;
     }
 
+    // Getter và Setter cho name
     public String getName() {
         return name;
     }
@@ -32,6 +34,7 @@ public abstract class MobilePhone {
         this.name = name;
     }
 
+    // Getter và Setter cho price
     public double getPrice() {
         return price;
     }
@@ -40,6 +43,7 @@ public abstract class MobilePhone {
         this.price = price;
     }
 
+    // Getter và Setter cho quantity
     public int getQuantity() {
         return quantity;
     }
@@ -48,6 +52,7 @@ public abstract class MobilePhone {
         this.quantity = quantity;
     }
 
+    // Getter và Setter cho manufacturer
     public String getManufacturer() {
         return manufacturer;
     }
@@ -56,11 +61,13 @@ public abstract class MobilePhone {
         this.manufacturer = manufacturer;
     }
 
+    // Phương thức toString
     @Override
     public abstract String toString();
 
     // Phương thức để chuyển đối tượng thành chuỗi CSV
     public abstract String toCSV();
+
+    // Phương thức để chuyển đối tượng thành mảng chuỗi CSV
+    public abstract String[] toCSVArray();
 }
-
-

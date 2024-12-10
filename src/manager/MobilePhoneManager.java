@@ -84,7 +84,7 @@ public class MobilePhoneManager {
     // Thêm mới điện thoại
     public void addPhone(Scanner scanner) {
         List<MobilePhone> phones = readPhones();
-        int newId = getNextId(phones);
+        int newId = getNextId(phones);  // Ensure newId is generated properly
 
         System.out.println("Chọn loại điện thoại:");
         System.out.println("1. Chính hãng");
@@ -282,5 +282,4 @@ public class MobilePhoneManager {
             }
         }
     }
-}
-
+        }

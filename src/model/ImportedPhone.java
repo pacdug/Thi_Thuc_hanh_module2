@@ -10,19 +10,15 @@ public class ImportedPhone extends MobilePhone {
         this.status = status;
     }
 
-    // Getters and Setters
     public String getImportCountry() {
         return importCountry;
     }
-
     public void setImportCountry(String importCountry) {
         this.importCountry = importCountry;
     }
-
     public String getStatus() {
         return status;
     }
-
     public void setStatus(String status) {
         this.status = status;
     }
@@ -44,5 +40,18 @@ public class ImportedPhone extends MobilePhone {
     public String toCSV() {
         return id + ",Imported," + name + "," + price + "," + quantity + "," + manufacturer + "," + importCountry + "," + status;
     }
-}
 
+    @Override
+    public String[] toCSVArray() {
+        return new String[]{
+                String.valueOf(id),
+                "Imported",
+                name,
+                String.valueOf(price),
+                String.valueOf(quantity),
+                manufacturer,
+                importCountry,
+                status
+        };
+    }
+}
